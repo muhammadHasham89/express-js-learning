@@ -2,9 +2,15 @@ const express = require('express'); // dependency
 const app = express() // initiate object
 const mongoose = require('mongoose');
 const User = require('./models/userModels');
+// jwt
+const jwt = require('jsonwebtoken');
+const tokenSecrate = '313019c47a728541248c60b95a9e97ae53d4de621fd926ebd8bfb5a589ced73de15adcac5187534c6bc3ad138a000dae34cc1845bd25478853afd825c80f0477';
 
 // use middleware to parse request
 app.use(express.json())
+// to support form post
+app.use(express.urlencoded({extended: true}))
+
 
 // create connection with port 3000
 app.listen(3000, ()=> {
@@ -12,12 +18,25 @@ app.listen(3000, ()=> {
 })
 
 
-app.get('/', (req, res) => {
-    res.send('Hello World');
-    console.log('Hello');
-})
+app.post('/login', async (req, res) => {
+    const user = await User.find({
+        email: req.body.email,
+        password: req.body.password
+    });
 
-app.get('/users', async (req, res) => {
+    if(user.length > 0){
+        const token = generateAccessToken({id: user[0]._id});
+        res.status(200).json({
+            message: "Login Successfully",
+            token: token
+        });
+
+    }else{
+        res.status(404).json({message: "User not found"});
+    }
+});
+
+app.get('/users', authenticateToken, async (req, res) => {
     try {
         const users = await User.find({});
         res.status(200).json(users);
@@ -51,7 +70,7 @@ app.post('/user', async(req, res) => {
 })
 
 // update user
-app.put('/user/:id', async (req, res) => {
+app.put('/user/:id', authenticateToken, async (req, res) => {
     try{
         //update user
         const {id} = req.params;
@@ -83,6 +102,27 @@ app.delete('/user/:id', async (req, res) => {
         res.status(500).json({message: error.message})
     }
 });
+
+
+function generateAccessToken(userId){
+    return jwt.sign(userId, tokenSecrate, {expiresIn: '1800s'});
+}
+// verify token
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+
+    if (token == null) return res.sendStatus(401).json({message: "Unauthorized"});
+
+    jwt.verify(token, tokenSecrate, (err, user) => {
+        console.log(err);
+        if (err) return res.sendStatus(403).json({message: "Forbidden"});
+
+        req.user = user;
+
+        next();
+    });
+}
 
 mongoose.set("strictQuery", false);
 // connnect with mongo with mongoose

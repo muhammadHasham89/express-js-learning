@@ -7,3 +7,4 @@
  - npm i nodemon -D
  - npm run dev #run application with nodemon
  - npm i mongoose #install mongo extension
+ - installed JWT for authentication
